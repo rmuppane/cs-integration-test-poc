@@ -2,7 +2,10 @@ package com.redhat.internal.pam.helpers;
 
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
+
 import org.kie.server.api.marshalling.MarshallingFormat;
 import org.kie.server.client.KieServicesClient;
 import org.kie.server.client.KieServicesConfiguration;
@@ -22,6 +25,9 @@ public final class KieServicesClientHelper {
 		config.addExtraClasses(Arrays.asList(remoteClasses).stream().collect(Collectors.toSet()));
 		config.setMarshallingFormat(MarshallingFormat.JSON);
 		config.setTimeout(100000l);
+		Map<String, String> headers = new HashMap<String, String>();
+		headers.put("X-KIE-ContentType", "JSON");
+		config.setHeaders(headers);
 		return KieServicesFactory.newKieServicesClient(config);
 	}
 

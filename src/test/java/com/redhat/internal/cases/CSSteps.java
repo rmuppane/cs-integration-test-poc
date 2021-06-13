@@ -1,35 +1,36 @@
 package com.redhat.internal.cases;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import java.time.Duration;
-import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.kie.server.api.model.KieContainerResource;
 import org.kie.server.api.model.ReleaseId;
 import org.kie.server.api.model.instance.ProcessInstance;
 import org.kie.server.client.KieServicesClient;
 import org.kie.server.client.ProcessServicesClient;
-import org.kie.server.client.QueryServicesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.redhat.Document;
 import com.redhat.GSWrapper;
+import com.redhat.internal.dao.DecisionDAO;
 import com.redhat.internal.pam.helpers.KieServicesClientHelper;
 
 import cucumber.api.DataTable;
 import cucumber.api.Scenario;
 import cucumber.api.java.After;
 import cucumber.api.java.Before;
-import cucumber.api.java.en.And;
-import cucumber.api.java.en.Given;
+import cucumber.api.java.en.Then;
+import cucumber.api.java.en.When;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 
@@ -41,7 +42,7 @@ public class CSSteps {
             "http://localhost:8080/kie-server/services/rest/server");
     private static final String USERNAME = System.getProperty("kie.server.user", "rhdmAdmin");
     private static final String PASSWORD = System.getProperty("kie.server.password", "Pa$$w0rd");
-    private static final String CONTAINER_ID = "POC_test-dmn_1.0.0-SNAPSHOT";
+    private static final String CONTAINER_ID = "POC_test-dmn_1.0.2-SNAPSHOT";
 
     RetryPolicy<Object> retryPolicy = new RetryPolicy<>() //
         .handle(Exception.class) //
@@ -51,11 +52,14 @@ public class CSSteps {
     @Inject
     private CSSharedState csSharedState;
 
+    @Inject
+    private DecisionDAO decisionDAO;
+
     @Before
     public void beforTest(Scenario scenario) {
         LOGGER.info("######################### INIT SCENARIO {} #########################", scenario.getName());
         final KieContainerResource containerResource = new KieContainerResource(CONTAINER_ID,
-                new ReleaseId("com.redhat", "test-dmn", "1.0.0-SNAPSHOT"));
+                new ReleaseId("com.redhat", "test-dmn", "1.0.2-SNAPSHOT"));
         getBaseServiceClient().createContainer(CONTAINER_ID, containerResource);
     }
 
@@ -66,6 +70,7 @@ public class CSSteps {
     	activeProcesses.stream().forEach(pi -> processServicesClient.abortProcessInstance(CONTAINER_ID, pi.getId()));
         getBaseServiceClient().deactivateContainer(CONTAINER_ID);
         getBaseServiceClient().disposeContainer(CONTAINER_ID);
+        decisionDAO.removeDecision();
         LOGGER.info("######################### END SCENARIO {} #########################", scenario.getName());
     }
 
@@ -73,7 +78,7 @@ public class CSSteps {
         return KieServicesClientHelper.getInstance().getKieServicesClient(USERNAME, PASSWORD, URL, GSWrapper.class, Document.class);
     }
 
-    @Given("^a request to check for '(.*?)' when the customer financial status is")
+    @When("^a request to check for '(.*?)' the generated documents")
     public void startProcessInstance(String processDefinitionId, DataTable table) throws Throwable {
         LOGGER.info("a process instance for definition id '{}' is started$", processDefinitionId);
         final ProcessServicesClient processServicesClient = getBaseServiceClient().getServicesClient(ProcessServicesClient.class);
@@ -90,7 +95,7 @@ public class CSSteps {
     	wrapper.setState((String)rows.get("state"));
     	wrapper.setZone((String)rows.get("zone"));
     	wrapper.setDateOfIncorporationMonths(Integer.parseInt((String)rows.get("dateOfIncorporationMonths")));
-    	wrapper.setDateOfIncorporation(LocalDate.parse((String)rows.get("dateOfIncorporation"))); 
+    	// wrapper.setDateOfIncorporation(LocalDate.parse((String)rows.get("dateOfIncorporation"))); 
     	//TODO : How to pass the date  
     	wrapper.setCompanyTypeEnName((String)rows.get("companyTypeEnName"));
     	wrapper.setCountryCode(Integer.parseInt((String)rows.get("countryCode")));
@@ -98,22 +103,19 @@ public class CSSteps {
 		return transRows;
 	}
 
-    @And("^customer Loan might be '(.*?)'")
-    public void validate(String varValue, DataTable table) throws Throwable {
-		String varName = "pPojoOutput";
-        LOGGER.info("validate process variable {} value is {}", varName, varValue);
-        final QueryServicesClient queryServicesClient = getBaseServiceClient().getServicesClient(QueryServicesClient.class);
-        ProcessInstance pi = queryServicesClient.findProcessInstanceById(csSharedState.getProcessId(), true);
-        // ObjectMapper.
-        Map<String, Object> values = pi.getVariables();
-        String documents = (String)values.get(varName);
-        //TODO : How to get the actual objects 
-        assertEquals(documents, "[{docName=UK-Doc-1a, footNoteCodes=[3, 5]}, {docName=UK-Doc-2a, footNoteCodes=[3, 7]}]");
+    @Then("^List of documents are")
+    public void validate(List<Document> documents) throws Throwable {
+    	String json = decisionDAO.getDecisionJson(csSharedState.getProcessId());
+        LOGGER.info("validate the documents {} value is {}", json, documents);
+        ObjectMapper objectMapper = new ObjectMapper();
+        List<Document> docs = objectMapper.readValue(json, new TypeReference<List<Document>>(){});
+        assertNotNull(docs);
         
-        // pPojoOutput=[{docName=UK-Doc-1a, footNoteCodes=[3, 5]}, {docName=UK-Doc-2a, footNoteCodes=[3, 7]}]
+        if(CollectionUtils.subtract(docs, documents) .size() > 0 ) {
+        	
+        }
         
         //Failsafe.with(retryPolicy).run(() -> processId.set(processServicesClient.startProcess(CONTAINER_ID, processDefinitionId, rows)));
-        //csSharedState.setProcessId(processId.get());
     }
     
     
