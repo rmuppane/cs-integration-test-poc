@@ -7,7 +7,6 @@ Feature: Test case 'cs'
 	      |dateOfIncorporation				|2021-01-01		|
 	      |companyTypeEnName					|Ltd					|
 	      |countryCode								|165					|
-	      Then customer Loan might be 'Approved'
 	      Then List of documents are
 	      |  docName  | documentENname |  documentDEName  | documentITName  | documentFRName  |  documentInSourceAndCSLangRequired |  footNoteCodes  |
 	      		|  UK-Doc-1a  | en-Document-1a | de-Document-1a | it-Document-1a | fr-Document-1a | true 														 	 |  3,5					 |

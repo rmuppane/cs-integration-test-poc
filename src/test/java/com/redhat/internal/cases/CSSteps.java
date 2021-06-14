@@ -1,9 +1,14 @@
 package com.redhat.internal.cases;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
+import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -18,19 +23,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JSR310Module;
 import com.google.inject.Inject;
 import com.redhat.Document;
 import com.redhat.GSWrapper;
 import com.redhat.internal.dao.DecisionDAO;
 import com.redhat.internal.pam.helpers.KieServicesClientHelper;
 
-import cucumber.api.DataTable;
-import cucumber.api.Scenario;
-import cucumber.api.java.After;
-import cucumber.api.java.Before;
-import cucumber.api.java.en.Then;
-import cucumber.api.java.en.When;
+import io.cucumber.datatable.DataTable;
+import io.cucumber.java.After;
+import io.cucumber.java.Before;
+import io.cucumber.java.DataTableType;
+import io.cucumber.java.DefaultDataTableCellTransformer;
+import io.cucumber.java.DefaultDataTableEntryTransformer;
+import io.cucumber.java.DefaultParameterTransformer;
+import io.cucumber.java.Scenario;
+import io.cucumber.java.en.Then;
+import io.cucumber.java.en.When;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 
@@ -54,6 +65,22 @@ public class CSSteps {
 
     @Inject
     private DecisionDAO decisionDAO;
+    
+    @DataTableType
+    public Document documentEntry(Map<String, String> entry) {
+        String str = entry.get("footNoteCodes");
+        List<String> stringList = Arrays.asList(str.toString().split(","));
+    	List<BigDecimal> bigDecimalList = new LinkedList<BigDecimal>();
+    	for (String value : stringList) {
+    	    bigDecimalList.add(new BigDecimal(value));
+    	}
+    	return new Document(entry.get("docName"),
+        		bigDecimalList,
+        		entry.get("documentENname"), entry.get("documentDEName"),
+        		entry.get("documentITName"), entry.get("documentFRName"),
+        		"",
+        		new Boolean(entry.get("documentInSourceAndCSLangRequired")) );
+    }
 
     @Before
     public void beforTest(Scenario scenario) {
@@ -110,11 +137,9 @@ public class CSSteps {
         ObjectMapper objectMapper = new ObjectMapper();
         List<Document> docs = objectMapper.readValue(json, new TypeReference<List<Document>>(){});
         assertNotNull(docs);
-        
-        if(CollectionUtils.subtract(docs, documents) .size() > 0 ) {
-        	
+        if(CollectionUtils.subtract(docs, documents) .size() == 0 ) {
+        	 assertTrue(true);
         }
-        
         //Failsafe.with(retryPolicy).run(() -> processId.set(processServicesClient.startProcess(CONTAINER_ID, processDefinitionId, rows)));
     }
     
