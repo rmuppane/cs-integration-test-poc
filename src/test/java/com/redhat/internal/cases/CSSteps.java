@@ -111,8 +111,8 @@ public class CSSteps {
         final ProcessServicesClient processServicesClient = getBaseServiceClient().getServicesClient(ProcessServicesClient.class);
         final AtomicReference<Long> processId = new AtomicReference<>();
         final Map<String, Object> rows1 = table.asMap(String.class, Object.class);
-        final Map<String, Object> rows = translate(rows1);
-        Failsafe.with(retryPolicy).run(() -> processId.set(processServicesClient.startProcess(CONTAINER_ID, processDefinitionId, rows)));
+        final Map<String, Object> input = translate(rows1);
+        Failsafe.with(retryPolicy).run(() -> processId.set(processServicesClient.startProcess(CONTAINER_ID, processDefinitionId, input)));
         csSharedState.setProcessId(processId.get());
     }
     
@@ -143,8 +143,4 @@ public class CSSteps {
         //Failsafe.with(retryPolicy).run(() -> processId.set(processServicesClient.startProcess(CONTAINER_ID, processDefinitionId, rows)));
     }
     
-    
-    public static void main(String args[]) {
-    	
-    }
 }
